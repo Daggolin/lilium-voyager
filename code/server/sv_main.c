@@ -49,6 +49,9 @@ cvar_t	*sv_killserver;			// menu system can set to 1 to shut server down
 cvar_t	*sv_mapname;
 cvar_t	*sv_mapChecksum;
 cvar_t	*sv_serverid;
+cvar_t	*sv_minSnaps;			// minimum snapshots/sec a client can request, also limited by sv_maxSnaps
+cvar_t	*sv_maxSnaps;			// maximum snapshots/sec a client can request, also limited by sv_fps
+cvar_t	*sv_enforceSnaps;
 cvar_t	*sv_minRate;
 cvar_t	*sv_maxRate;
 cvar_t	*sv_dlRate;
@@ -1200,6 +1203,9 @@ void SV_Frame( int msec ) {
 	// check timeouts
 	SV_CheckTimeouts();
 
+	// check if snaps or rate limits changed and apply the changes to all clients
+	SV_HandleClientSnaps();
+
 	// send messages back to the clients
 	SV_SendClientMessages();
 
@@ -1221,27 +1227,11 @@ a client based on its rate settings
 
 int SV_RateMsec(client_t *client)
 {
-	int rate, rateMsec;
+	int		rate = SV_ClientRate( client );
+	int		rateMsec;
 	int messageSize;
 	
 	messageSize = client->netchan.lastSentSize;
-	rate = client->rate;
-
-	if(sv_maxRate->integer)
-	{
-		if(sv_maxRate->integer < 1000)
-			Cvar_Set( "sv_MaxRate", "1000" );
-		if(sv_maxRate->integer < rate)
-			rate = sv_maxRate->integer;
-	}
-
-	if(sv_minRate->integer)
-	{
-		if(sv_minRate->integer < 1000)
-			Cvar_Set("sv_minRate", "1000");
-		if(sv_minRate->integer > rate)
-			rate = sv_minRate->integer;
-	}
 
 	if(client->netchan.remoteAddress.type == NA_IP6)
 		messageSize += UDPIP6_HEADER_SIZE;
@@ -1335,4 +1325,33 @@ int SV_SendQueuedPackets()
 	}
 
 	return timeVal;
+}
+
+void SV_HandleClientSnaps( void )
+{
+	static int lastModFps = -1, lastModSnapsMin = -1, lastModSnapsMax = -1, lastModEnforceSnaps = -1;
+
+	// Check if any of the net settings cvars was modified
+	if ( sv_fps->modificationCount != lastModFps ||
+	     sv_minSnaps->modificationCount != lastModSnapsMin ||
+	     sv_maxSnaps->modificationCount != lastModSnapsMax ||
+	     sv_enforceSnaps->modificationCount != lastModEnforceSnaps )
+	{
+		client_t *cl;
+		int i;
+
+		// Remember that we handled the modifications now
+		lastModFps = sv_fps->modificationCount;
+		lastModSnapsMin = sv_minSnaps->modificationCount;
+		lastModSnapsMax = sv_maxSnaps->modificationCount;
+		lastModEnforceSnaps = sv_enforceSnaps->modificationCount;
+
+		for ( i = 0, cl = svs.clients; i < sv_maxclients->integer; i++, cl++ )
+		{
+			if ( cl->state >= CS_CONNECTED )
+			{
+				SV_ClientUpdateSnaps( cl );
+			}
+		}
+	}
 }

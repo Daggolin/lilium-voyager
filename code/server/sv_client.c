@@ -1479,22 +1479,11 @@ void SV_UserinfoChanged( client_t *cl ) {
 
 	// if the client is on the same subnet as the server and we aren't running an
 	// internet public server, assume they don't need a rate choke
-	if ( Sys_IsLANAddress( cl->netchan.remoteAddress ) && com_dedicated->integer != 2 && sv_lanForceRate->integer == 1) {
+	cl->rate = atoi( Info_ValueForKey(cl->userinfo, "rate") );
+	if ( Sys_IsLANAddress( cl->netchan.remoteAddress ) && com_dedicated->integer != 2 && sv_lanForceRate->integer == 1 && cl->rate < 99999 ) {
 		cl->rate = 99999;	// lans should not rate limit
-	} else {
-		val = Info_ValueForKey (cl->userinfo, "rate");
-		if (strlen(val)) {
-			i = atoi(val);
-			cl->rate = i;
-			if (cl->rate < 1000) {
-				cl->rate = 1000;
-			} else if (cl->rate > 90000) {
-				cl->rate = 90000;
-			}
-		} else {
-			cl->rate = 3000;
-		}
 	}
+
 	val = Info_ValueForKey (cl->userinfo, "handicap");
 	if (strlen(val)) {
 		i = atoi(val);
@@ -1504,28 +1493,7 @@ void SV_UserinfoChanged( client_t *cl ) {
 	}
 
 	// snaps command
-	val = Info_ValueForKey (cl->userinfo, "snaps");
-	
-	if(strlen(val))
-	{
-		i = atoi(val);
-		
-		if(i < 1)
-			i = 1;
-		else if(i > sv_fps->integer)
-			i = sv_fps->integer;
-
-		i = 1000 / i;
-	}
-	else
-		i = 50;
-
-	if(i != cl->snapshotMsec)
-	{
-		// Reset last sent snapshot so we avoid desync between server frame time and snapshot send time
-		cl->lastSnapshotTime = 0;
-		cl->snapshotMsec = i;		
-	}
+	SV_ClientUpdateSnaps( cl );
 	
 #ifdef USE_VOIP
 #ifdef LEGACY_PROTOCOL
@@ -2103,4 +2071,51 @@ void SV_ExecuteClientMessage( client_t *cl, msg_t *msg ) {
 //	if ( msg->readcount != msg->cursize ) {
 //		Com_Printf( "WARNING: Junk at end of packet for client %i\n", cl - svs.clients );
 //	}
+}
+
+int SV_ClientRate( client_t *client )
+{
+	int minRate = sv_minRate->integer;
+	int maxRate = sv_maxRate->integer;
+
+	// LAN clients may bypass rate limits
+	if ( Sys_IsLANAddress(client->netchan.remoteAddress) && com_dedicated->integer != 2 && sv_lanForceRate->integer == 1 )
+		return client->rate;
+
+	// Special case for sv_maxRate 0: "unlimited" was hardcoded to 90000 in ioq3
+	if ( !maxRate ) maxRate = 90000;
+
+	// Never allow rates below 1000 (was already hardcoded to 1000 in ioq3)
+	if ( minRate < 1000 ) minRate = 1000;
+	if ( maxRate < 1000 ) maxRate = 1000;
+
+	// If the minimum is higher than the maximum settle for the lower value
+	if ( minRate > maxRate ) minRate = maxRate;
+
+	// Ensure the rate is within the allowed range
+	return Com_Clampi( minRate, maxRate, client->rate );
+}
+
+int SV_ClientSnaps( client_t *client )
+{
+	int maxSnaps = ( sv_maxSnaps->integer ? Com_Clampi( 1, sv_fps->integer, sv_maxSnaps->integer ) : sv_fps->integer );
+	int minSnaps = Com_Clampi( 1, maxSnaps, sv_minSnaps->integer );
+
+	// Get the desired snaps value (either sv_fps or the value from the userinfo)
+	int wishSnaps = sv_enforceSnaps->integer ? sv_fps->integer : atoi(Info_ValueForKey(client->userinfo, "snaps"));
+
+	// Ensure the snaps value is within the allowed range
+	return Com_Clampi( minSnaps, maxSnaps, wishSnaps );
+}
+
+void SV_ClientUpdateSnaps( client_t *client )
+{
+	int snapsMsec = 1000 / SV_ClientSnaps( client );
+
+	if ( snapsMsec != client->snapshotMsec )
+	{
+		// Reset next snapshot so we avoid desync between server frame time and snapshot send time
+		client->snapshotMsec = snapsMsec;
+		client->lastSnapshotTime = 0;
+	}
 }

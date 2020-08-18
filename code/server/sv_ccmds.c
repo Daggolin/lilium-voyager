@@ -1224,7 +1224,7 @@ static void SV_Status_f( void ) {
 			j++;
 		} while(j < l);
 		
-		Com_Printf (" %5i", cl->rate);
+		Com_Printf (" %5i", SV_ClientRate(cl));
 
 		Com_Printf ("\n");
 	}

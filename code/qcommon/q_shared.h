@@ -780,6 +780,16 @@ void PerpendicularVector( vec3_t dst, const vec3_t src );
 
 float Com_Clamp( float min, float max, float value );
 
+static ID_INLINE int Com_Clampi( int min, int max, int value ) {
+	if ( value < min ) {
+		return min;
+	}
+	if ( value > max ) {
+		return max;
+	}
+	return value;
+}
+
 char	*COM_SkipPath( char *pathname );
 const char	*COM_GetExtension( const char *name );
 void	COM_StripExtension(const char *in, char *out, int destsize);

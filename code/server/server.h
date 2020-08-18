@@ -282,6 +282,9 @@ extern	cvar_t	*sv_killserver;
 extern	cvar_t	*sv_mapname;
 extern	cvar_t	*sv_mapChecksum;
 extern	cvar_t	*sv_serverid;
+extern	cvar_t	*sv_minSnaps;
+extern	cvar_t	*sv_maxSnaps;
+extern	cvar_t	*sv_enforceSnaps;
 extern	cvar_t	*sv_minRate;
 extern	cvar_t	*sv_maxRate;
 extern	cvar_t	*sv_dlRate;
@@ -344,6 +347,8 @@ void SV_RemoveOperatorCommands (void);
 void SV_MasterShutdown (void);
 int SV_RateMsec(client_t *client);
 
+void SV_HandleClientSnaps( void );
+
 
 
 //
@@ -385,6 +390,10 @@ void SV_ClientThink (client_t *cl, usercmd_t *cmd);
 int SV_WriteDownloadToClient(client_t *cl , msg_t *msg);
 int SV_SendDownloadMessages(void);
 int SV_SendQueuedMessages(void);
+
+int SV_ClientRate( client_t *client );
+int SV_ClientSnaps( client_t *client );
+void SV_ClientUpdateSnaps( client_t *client );
 
 
 //

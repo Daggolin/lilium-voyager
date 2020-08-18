@@ -640,8 +640,11 @@ void SV_Init (void)
 	sv_hostname = Cvar_Get ("sv_hostname", "noname", CVAR_SERVERINFO | CVAR_ARCHIVE );
 	sv_maxclients = Cvar_Get ("sv_maxclients", "8", CVAR_SERVERINFO | CVAR_LATCH);
 
-	sv_minRate = Cvar_Get ("sv_minRate", "0", CVAR_ARCHIVE | CVAR_SERVERINFO );
-	sv_maxRate = Cvar_Get ("sv_maxRate", "0", CVAR_ARCHIVE | CVAR_SERVERINFO );
+	sv_minSnaps = Cvar_Get("sv_minSnaps", "1", CVAR_ARCHIVE);                        // ioq3 hardcoded min: 1
+	sv_maxSnaps = Cvar_Get("sv_maxSnaps", "0", CVAR_ARCHIVE);                        // ioq3 hardcoded max: sv_fps (0 in our implementation)
+	sv_enforceSnaps = Cvar_Get("sv_enforceSnaps", "0", CVAR_ARCHIVE);                // 0: user choice (limited by min/max snaps); 1: sv_fps (limited by min/max snaps)
+	sv_minRate = Cvar_Get("sv_minRate", "1000", CVAR_ARCHIVE | CVAR_SERVERINFO );    // ioq3 hardcoded min: 1000
+	sv_maxRate = Cvar_Get ("sv_maxRate", "90000", CVAR_ARCHIVE | CVAR_SERVERINFO );  // ioq3 hardcoded max: 90000
 	sv_dlRate = Cvar_Get("sv_dlRate", "100", CVAR_ARCHIVE | CVAR_SERVERINFO);
 	sv_minPing = Cvar_Get ("sv_minPing", "0", CVAR_ARCHIVE | CVAR_SERVERINFO );
 	sv_maxPing = Cvar_Get ("sv_maxPing", "0", CVAR_ARCHIVE | CVAR_SERVERINFO );

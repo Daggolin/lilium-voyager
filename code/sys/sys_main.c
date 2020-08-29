@@ -753,8 +753,9 @@ int main( int argc, char **argv )
 	}
 
 	CON_Init( );
-	Com_Init( commandLine );
-	NET_Init( );
+	if ( !Com_Init(commandLine) ) {
+		NET_Init( );
+	}
 
 	signal( SIGILL, Sys_SigHandler );
 	signal( SIGFPE, Sys_SigHandler );

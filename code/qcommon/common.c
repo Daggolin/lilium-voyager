@@ -107,6 +107,7 @@ cvar_t	*com_busyWait;
 #ifndef DEDICATED
 cvar_t  *con_autochat;
 #endif
+cvar_t	*com_earlyNet;
 
 #if idx64
 	int (*Q_VMftol)(void);
@@ -2754,7 +2755,7 @@ static void Com_InitRand(void)
 Com_Init
 =================
 */
-void Com_Init( char *commandLine ) {
+qboolean Com_Init( char *commandLine ) {
 	char	*s;
 	int	qport;
 
@@ -2802,6 +2803,11 @@ void Com_Init( char *commandLine ) {
 	com_homepath = Cvar_Get("com_homepath", HOMEPATH_NAME, CVAR_INIT|CVAR_PROTECTED);
 	if ( !com_homepath->string[0] ) {
 		Cvar_ForceReset( "com_homepath" );
+	}
+
+	com_earlyNet = Cvar_Get("com_earlynet", "1", CVAR_INIT);
+	if ( com_earlyNet->integer ) {
+		NET_Init();
 	}
 
 	FS_InitFilesystem ();
@@ -2959,6 +2965,8 @@ void Com_Init( char *commandLine ) {
 	}
 
 	Com_Printf ("--- Common Initialization Complete ---\n");
+
+	return (qboolean)!!com_earlyNet->integer;
 }
 
 /*

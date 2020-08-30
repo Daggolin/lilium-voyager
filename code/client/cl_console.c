@@ -58,6 +58,7 @@ console_t	con;
 cvar_t		*con_conspeed;
 cvar_t		*con_autoclear;
 cvar_t		*con_notifytime;
+cvar_t		*con_fullwidth;
 
 #define	DEFAULT_CONSOLE_WIDTH	78
 
@@ -283,7 +284,10 @@ void Con_CheckResize (void)
 	int		i, j, width, oldwidth, oldtotallines, numlines, numchars;
 	short	tbuf[CON_TEXTSIZE];
 
-	width = (SCREEN_WIDTH / SMALLCHAR_WIDTH) - 2;
+	if ( !con.initialized )
+		width = (SCREEN_WIDTH / SMALLCHAR_WIDTH) - 2;
+	else
+		width = ((con_fullwidth->integer ? cls.glconfig.vidWidth : SCREEN_WIDTH) / SMALLCHAR_WIDTH) - 2;
 
 	if (width == con.linewidth)
 		return;
@@ -359,6 +363,7 @@ void Con_Init (void) {
 	con_notifytime = Cvar_Get ("con_notifytime", "3", 0);
 	con_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 	con_autoclear = Cvar_Get("con_autoclear", "1", CVAR_ARCHIVE);
+	con_fullwidth = Cvar_Get( "con_fullwidth", "0", CVAR_ARCHIVE );
 
 	Field_Clear( &g_consoleField );
 	g_consoleField.widthInChars = g_console_field_width;

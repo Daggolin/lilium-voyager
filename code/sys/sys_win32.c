@@ -412,7 +412,7 @@ DIRECTORY SCANNING
 ==============================================================
 */
 
-#define MAX_FOUND_FILES 0x1000
+#define MAX_FOUND_FILES 0x4000
 
 /*
 ==============

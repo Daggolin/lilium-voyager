@@ -216,7 +216,7 @@ static const unsigned int missionpak_checksums[] =
 //#define PRE_RELEASE_TADEMO
 
 #define MAX_ZPATH			256
-#define	MAX_SEARCH_PATHS	4096
+#define	MAX_SEARCH_PATHS	16384
 #define MAX_FILEHASH_SIZE	1024
 
 typedef struct fileInPack_s {

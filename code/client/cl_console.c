@@ -33,7 +33,9 @@ int g_console_field_width = 78;
 typedef struct {
 	qboolean	initialized;
 
-	short	text[CON_TEXTSIZE];
+	short	*text;
+	short	*tbuf;			// buffer to hold console data when copying things over during resize etc.
+	int		textsize;		// size of the text buffer
 	int		current;		// line where next message will be printed
 	int		x;				// offset in current line for next print
 	int		display;		// bottom of console displays this line
@@ -59,6 +61,8 @@ cvar_t		*con_conspeed;
 cvar_t		*con_autoclear;
 cvar_t		*con_notifytime;
 cvar_t		*con_fullwidth;
+cvar_t		*con_history;
+cvar_t		*con_textsize;
 
 #define	DEFAULT_CONSOLE_WIDTH	78
 
@@ -163,7 +167,7 @@ Con_Clear_f
 void Con_Clear_f (void) {
 	int		i;
 
-	for ( i = 0 ; i < CON_TEXTSIZE ; i++ ) {
+	for ( i = 0 ; i < con.textsize; i++ ) {
 		con.text[i] = (ColorIndex(COLOR_WHITE)<<8) | ' ';
 	}
 
@@ -282,7 +286,11 @@ If the line width has changed, reformat the buffer.
 void Con_CheckResize (void)
 {
 	int		i, j, width, oldwidth, oldtotallines, numlines, numchars;
-	short	tbuf[CON_TEXTSIZE];
+
+	// As this gets called before Con_Init we just call Con_TextSize with 0 and use the static buffers. The pointer can
+	// later be updated by Con_Init.
+	if ( !con.text || !con.tbuf )
+		Con_TextSize( 0 );
 
 	if ( !con.initialized )
 		width = (SCREEN_WIDTH / SMALLCHAR_WIDTH) - 2;
@@ -296,8 +304,8 @@ void Con_CheckResize (void)
 	{
 		width = DEFAULT_CONSOLE_WIDTH;
 		con.linewidth = width;
-		con.totallines = CON_TEXTSIZE / con.linewidth;
-		for(i=0; i<CON_TEXTSIZE; i++)
+		con.totallines = con.textsize / con.linewidth;
+		for(i=0; i<con.textsize; i++)
 
 			con.text[i] = (ColorIndex(COLOR_WHITE)<<8) | ' ';
 	}
@@ -306,7 +314,7 @@ void Con_CheckResize (void)
 		oldwidth = con.linewidth;
 		con.linewidth = width;
 		oldtotallines = con.totallines;
-		con.totallines = CON_TEXTSIZE / con.linewidth;
+		con.totallines = con.textsize / con.linewidth;
 		numlines = oldtotallines;
 
 		if (con.totallines < numlines)
@@ -317,8 +325,8 @@ void Con_CheckResize (void)
 		if (con.linewidth < numchars)
 			numchars = con.linewidth;
 
-		Com_Memcpy (tbuf, con.text, CON_TEXTSIZE * sizeof(short));
-		for(i=0; i<CON_TEXTSIZE; i++)
+		Com_Memcpy (con.tbuf, con.text, con.textsize * sizeof(short));
+		for(i=0; i<con.textsize; i++)
 
 			con.text[i] = (ColorIndex(COLOR_WHITE)<<8) | ' ';
 
@@ -328,7 +336,7 @@ void Con_CheckResize (void)
 			for (j=0 ; j<numchars ; j++)
 			{
 				con.text[(con.totallines - 1 - i) * con.linewidth + j] =
-						tbuf[((con.current - i + oldtotallines) %
+						con.tbuf[((con.current - i + oldtotallines) %
 							  oldtotallines) * oldwidth + j];
 			}
 		}
@@ -351,6 +359,58 @@ void Cmd_CompleteTxtName( char *args, int argNum ) {
 	}
 }
 
+/*
+================
+Con_TextSize
+================
+*/
+void Con_TextSize( int textsize ) {
+	static short buf[2][CON_TEXTSIZE];
+
+	// Make sure we have at least the default size
+	if ( textsize && textsize < CON_TEXTSIZE )
+		textsize = CON_TEXTSIZE;
+
+	// Only allocate new buffers if the size changed (this means for the default size we stick to the static buffers above)
+	if ( textsize && textsize == con.textsize )
+		return;
+
+	if ( textsize ) {
+		// Store old text reference
+		short *oldBuf = con.text;
+
+		// Create the new text buffer
+		con.text = (short*)Z_Malloc( sizeof(short) * textsize );
+
+		// Have we got an old buffer?
+		if ( oldBuf )
+		{ // Got an old buffer, copy data over
+			Com_Memcpy( con.text, oldBuf, Com_Clampi( 0, textsize, con.textsize ) );
+			if ( oldBuf != buf[0] ) Z_Free( oldBuf );
+		}
+		else
+		{ // Clear the new buffer
+			Com_Memset( con.text, 0, textsize );
+		}
+
+		// Store the new textsize
+		con.textsize = textsize;
+
+		// Free old tbuf and create a new one
+		if ( con.tbuf && con.tbuf != buf[1] ) Z_Free( con.tbuf );
+		con.tbuf = (short*)Z_Malloc( sizeof(short) * textsize );
+	} else if ( con.text != buf[0] || con.tbuf != buf[1] ) {
+		// Free existing buffers
+		if ( con.text && con.text != buf[0] ) Z_Free( con.text );
+		if ( con.tbuf && con.tbuf != buf[1] ) Z_Free( con.tbuf );
+
+		// Point to our static buffers so we can still use the console after Con_Shutdown
+		con.text = buf[0];
+		con.tbuf = buf[1];
+		con.textsize = CON_TEXTSIZE;
+		Con_Clear_f();
+	}
+}
 
 /*
 ================
@@ -364,10 +424,20 @@ void Con_Init (void) {
 	con_conspeed = Cvar_Get ("scr_conspeed", "3", 0);
 	con_autoclear = Cvar_Get("con_autoclear", "1", CVAR_ARCHIVE);
 	con_fullwidth = Cvar_Get( "con_fullwidth", "0", CVAR_ARCHIVE );
+	con_history = Cvar_Get( "con_history", "32", CVAR_INIT | CVAR_ARCHIVE );
+	con_textsize = Cvar_Get( "con_textsize", "32768", CVAR_INIT | CVAR_ARCHIVE );
+
+	// Get memory for the history fields
+	historyEditLinesAmount = con_history->integer;
+	if ( historyEditLinesAmount < 32 ) historyEditLinesAmount = 32;
+	historyEditLines = (field_t*)Z_Malloc( sizeof(field_t) * historyEditLinesAmount );
+
+	// Prepare the buffers for textsize
+	Con_TextSize( con_textsize->integer );
 
 	Field_Clear( &g_consoleField );
 	g_consoleField.widthInChars = g_console_field_width;
-	for ( i = 0 ; i < COMMAND_HISTORY ; i++ ) {
+	for ( i = 0 ; i < historyEditLinesAmount ; i++ ) {
 		Field_Clear( &historyEditLines[i] );
 		historyEditLines[i].widthInChars = g_console_field_width;
 	}
@@ -391,6 +461,11 @@ Con_Shutdown
 */
 void Con_Shutdown(void)
 {
+	if ( historyEditLines ) Z_Free( historyEditLines );
+	historyEditLinesAmount = 0;
+
+	Con_TextSize( 0 );
+
 	Cmd_RemoveCommand("toggleconsole");
 	Cmd_RemoveCommand("togglemenu");
 	Cmd_RemoveCommand("messagemode");

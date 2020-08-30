@@ -27,7 +27,8 @@ key up events are sent even if in console mode
 
 */
 
-field_t	historyEditLines[COMMAND_HISTORY];
+field_t	*historyEditLines;
+int		historyEditLinesAmount;
 
 int			nextHistoryLine;		// the last line in the history buffer, not masked
 int			historyLine;	// the line being displayed from history buffer
@@ -645,7 +646,7 @@ void Console_Key (int key) {
 		}
 
 		// copy line to history buffer
-		historyEditLines[nextHistoryLine % COMMAND_HISTORY] = g_consoleField;
+		historyEditLines[nextHistoryLine % historyEditLinesAmount] = g_consoleField;
 		nextHistoryLine++;
 		historyLine = nextHistoryLine;
 
@@ -672,11 +673,11 @@ void Console_Key (int key) {
 
 	if ( (key == K_MWHEELUP && keys[K_SHIFT].down) || ( key == K_UPARROW ) || ( key == K_KP_UPARROW ) ||
 		 ( ( tolower(key) == 'p' ) && keys[K_CTRL].down ) ) {
-		if ( nextHistoryLine - historyLine < COMMAND_HISTORY 
+		if ( nextHistoryLine - historyLine < historyEditLinesAmount
 			&& historyLine > 0 ) {
 			historyLine--;
 		}
-		g_consoleField = historyEditLines[ historyLine % COMMAND_HISTORY ];
+		g_consoleField = historyEditLines[ historyLine % historyEditLinesAmount ];
 		return;
 	}
 
@@ -689,7 +690,7 @@ void Console_Key (int key) {
 			g_consoleField.widthInChars = g_console_field_width;
 			return;
 		}
-		g_consoleField = historyEditLines[ historyLine % COMMAND_HISTORY ];
+		g_consoleField = historyEditLines[ historyLine % historyEditLinesAmount ];
 		return;
 	}
 
@@ -1492,7 +1493,7 @@ void CL_LoadConsoleHistory( void )
 		consoleSaveBuffer[consoleSaveBufferSize] = '\0';
 		text_p = consoleSaveBuffer;
 
-		for( i = COMMAND_HISTORY - 1; i >= 0; i-- )
+		for( i = historyEditLinesAmount - 1; i >= 0; i-- )
 		{
 			if( !*( token = COM_Parse( &text_p ) ) )
 				break;
@@ -1524,7 +1525,7 @@ void CL_LoadConsoleHistory( void )
 
 		memmove( &historyEditLines[ 0 ], &historyEditLines[ i + 1 ],
 				numLines * sizeof( field_t ) );
-		for( i = numLines; i < COMMAND_HISTORY; i++ )
+		for( i = numLines; i < historyEditLinesAmount; i++ )
 			Field_Clear( &historyEditLines[ i ] );
 
 		historyLine = nextHistoryLine = numLines;
@@ -1551,7 +1552,7 @@ void CL_SaveConsoleHistory( void )
 
 	consoleSaveBuffer[ 0 ] = '\0';
 
-	i = ( nextHistoryLine - 1 ) % COMMAND_HISTORY;
+	i = ( nextHistoryLine - 1 ) % historyEditLinesAmount;
 	do
 	{
 		if( historyEditLines[ i ].buffer[ 0 ] )
@@ -1574,9 +1575,9 @@ void CL_SaveConsoleHistory( void )
 			else
 				break;
 		}
-		i = ( i - 1 + COMMAND_HISTORY ) % COMMAND_HISTORY;
+		i = ( i - 1 + historyEditLinesAmount ) % historyEditLinesAmount;
 	}
-	while( i != ( nextHistoryLine - 1 ) % COMMAND_HISTORY );
+	while( i != ( nextHistoryLine - 1 ) % historyEditLinesAmount );
 
 	consoleSaveBufferSize = strlen( consoleSaveBuffer );
 

@@ -770,7 +770,7 @@ static void SV_SendClientGameState( client_t *client ) {
 	// we have to do this cause we send the client->reliableSequence
 	// with a gamestate and it sets the clc.serverCommandSequence at
 	// the client side
-	SV_UpdateServerCommandsToClient( client, &msg );
+	SV_UpdateServerCommandsToClient( client, &msg, qfalse );
 
 	// send the gamestate
 	MSG_WriteByte( &msg, svc_gamestate );

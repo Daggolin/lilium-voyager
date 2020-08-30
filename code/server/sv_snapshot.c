@@ -280,16 +280,23 @@ SV_UpdateServerCommandsToClient
 (re)send all server commands the client hasn't acknowledged yet
 ==================
 */
-void SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg ) {
+qboolean SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg, qboolean allowPartial ) {
 	int		i;
 
 	// write any unacknowledged serverCommands
 	for ( i = client->reliableAcknowledge + 1 ; i <= client->reliableSequence ; i++ ) {
+		// The original q3 msg overflow checks for 4 byte internally; we want to write svc_servercommand (1 byte), the index (4 byte) and the string
+		if ( sv_dynamicSnapshots->integer && allowPartial && msg->maxsize - msg->cursize - 4 < 1 + 4 + (int)strlen(client->reliableCommands[i & (MAX_RELIABLE_COMMANDS-1)]) ) {
+			client->reliableSent = i - 1;
+			return qfalse;
+		}
+
 		MSG_WriteByte( msg, svc_serverCommand );
 		MSG_WriteLong( msg, i );
 		MSG_WriteString( msg, client->reliableCommands[ i & (MAX_RELIABLE_COMMANDS-1) ] );
 	}
 	client->reliableSent = client->reliableSequence;
+	return qtrue;
 }
 
 /*
@@ -665,6 +672,8 @@ Also called by SV_FinalMessage
 void SV_SendClientSnapshot( client_t *client ) {
 	byte		msg_buf[MAX_MSGLEN];
 	msg_t		msg;
+	byte		msgBak_buf[MAX_MSGLEN];
+	msg_t		msgBak;
 
 	// build the snapshot
 	SV_BuildClientSnapshot( client );
@@ -694,11 +703,27 @@ void SV_SendClientSnapshot( client_t *client ) {
 		MSG_WriteLong( &msg, client->lastClientCommand );
 
 	// (re)send any reliable server commands
-	SV_UpdateServerCommandsToClient( client, &msg );
+	if ( !SV_UpdateServerCommandsToClient(client, &msg, qtrue) ) {
+		// If we can't fit all commands in a single message send what we got and
+		// don't even try to send entities
+		SV_SendMessageToClient( &msg, client );
+		return;
+	}
+
+	// Backup the msg state in case the snapshot would overflow it
+	MSG_Copy( &msgBak, (byte*)&msgBak_buf, sizeof(msgBak_buf), &msg );
 
 	// send over all the relevant entityState_t
 	// and the playerState_t
 	SV_WriteSnapshotToClient( client, &msg );
+
+	if ( sv_dynamicSnapshots->integer && msg.overflowed && !msgBak.overflowed ) {
+		// The entity states were too much and the message overflowed. So send
+		// the old state of the message from before we tried to append the
+		// entity states.
+		SV_SendMessageToClient( &msgBak, client );
+		return;
+	}
 
 #ifdef USE_VOIP
 	SV_WriteVoipToClient( client, &msg );

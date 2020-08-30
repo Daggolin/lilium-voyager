@@ -66,6 +66,7 @@ cvar_t	*sv_strictAuth;
 #endif
 cvar_t	*sv_banFile;
 cvar_t	*sv_pingFix;
+cvar_t	*sv_dynamicSnapshots;
 
 serverBan_t serverBans[SERVER_MAXBANS];
 int serverBansCount = 0;

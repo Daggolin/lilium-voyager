@@ -299,6 +299,7 @@ extern	cvar_t	*sv_strictAuth;
 #endif
 extern	cvar_t	*sv_banFile;
 extern	cvar_t	*sv_pingFix;
+extern	cvar_t	*sv_dynamicSnapshots;
 
 extern	serverBan_t serverBans[SERVER_MAXBANS];
 extern	int serverBansCount;
@@ -405,7 +406,7 @@ void SV_Heartbeat_f( void );
 // sv_snapshot.c
 //
 void SV_AddServerCommand( client_t *client, const char *cmd );
-void SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg );
+qboolean SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg, qboolean allowPartial );
 void SV_WriteFrameToClient (client_t *client, msg_t *msg);
 void SV_SendMessageToClient( msg_t *msg, client_t *client );
 void SV_SendClientMessages( void );

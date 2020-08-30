@@ -130,7 +130,7 @@ void MSG_WriteBits( msg_t *msg, int value, int bits ) {
 	if ( msg->oob ) {
 #ifdef ELITEFORCE
 		if(msg->compat)
-		{
+		{ // FIXME: Shouldn't there be overflow checks?
 			int write, leftover, nbits = bits, location;
 			
 			// make sure to set all non-used space in value to zero.

@@ -713,6 +713,8 @@ void Con_DrawSolidConsole( float frac ) {
 			lines - SMALLCHAR_HEIGHT, Q3_VERSION[x] );
 	}
 
+	// draw the input prompt, user text, and cursor if desired
+	Con_DrawInput ();
 
 	// draw the text
 	con.vislines = lines;
@@ -763,9 +765,6 @@ void Con_DrawSolidConsole( float frac ) {
 			SCR_DrawSmallChar(  con.xadjust + (x+1)*SMALLCHAR_WIDTH, y, text[x] & 0xff );
 		}
 	}
-
-	// draw the input prompt, user text, and cursor if desired
-	Con_DrawInput ();
 
 	re.SetColor( NULL );
 }
